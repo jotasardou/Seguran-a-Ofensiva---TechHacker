@@ -1,0 +1,15 @@
+# Material original local; revisar antes de qualquer publicação.
+/AF - Tecnologias Hackers 26-2.pdf
+/img/WhatsApp Image *.jpeg
+
+# Credenciais e configuração local.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Arquivos temporários do editor/sistema.
+*~
+*.swp
+.DS_Store
