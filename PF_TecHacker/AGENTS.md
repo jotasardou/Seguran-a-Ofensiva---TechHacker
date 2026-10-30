@@ -17,6 +17,12 @@
 
 - Explicar o funcionamento em nível suficiente para uma revisão técnica, sem
   exigir leitura linha por linha.
+- Antes de propor comandos ou alterações, apresentar: conceito em linguagem
+  simples, analogia, exemplo concreto no laboratório, mudança pretendida, motivo,
+  efeito esperado, forma de validação e como desfazer quando aplicável.
+- Não avançar por siglas ou pressupor que o grupo conhece o papel de um componente.
+  Explicar como ele se relaciona aos demais e distinguir exigência do enunciado de
+  uma escolha de arquitetura do grupo.
 - Consultar fontes primárias antes de implementar e registrar URL, data, aplicação
   e limitações em docs/fontes.md. Distinguir documentação de decisão de projeto.
 - Não inventar fontes, medições, testes, resultados, tempo gasto ou aprovações.

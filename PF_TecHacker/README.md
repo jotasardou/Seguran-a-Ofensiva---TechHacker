@@ -25,6 +25,7 @@ vulnerabilidades encontradas não é a medida de sucesso.
 |---|---|
 | [Requisitos](docs/requisitos.md) | Obrigações do enunciado e critérios de conclusão |
 | [Cronograma](docs/cronograma.md) | Entregas, sessões e commits previstos |
+| [Laboratório](docs/laboratorio.md) | Instalação, execução, validação e restauração já comprovadas |
 | [Fontes](docs/fontes.md) | Referências consultadas e decisões que sustentam |
 | [Diário](docs/diario.md) | Contexto, decisões, aprendizados e próxima ação |
 | [Instruções de colaboração](AGENTS.md) | Regras para assistência neste repositório |
@@ -33,9 +34,9 @@ vulnerabilidades encontradas não é a medida de sucesso.
 
 | Equipamento | Informação disponível | Papel neste projeto |
 |---|---|---|
-| Appliance sem ventoinha, com quatro portas de rede | Executava pfSense no projeto anterior | A definir após conferir a configuração atual |
-| Dell OptiPlex Micro 7020 | Modelo informado pelo usuário e registrado no projeto anterior; executava Ubuntu | Candidato a hospedar componentes do laboratório |
-| Computador pessoal | Usuário informa que já possui Kali | Ponto de partida para acesso e ferramentas |
+| Appliance sem ventoinha, com quatro portas de rede | pfSense 2.7.2-RELEASE (amd64) confirmado no painel; WAN `192.168.20.30`, LAN `10.0.80.1` | Gateway e fronteira de rede do laboratório |
+| Dell OptiPlex Micro 7020 | Ubuntu 22.04.5 LTS confirmado pela saída enviada pelo usuário; comando Docker indisponível | Candidato a hospedar componentes do laboratório |
+| Computador pessoal | Usuário informa que possui Kali em VM no VirtualBox | Ponto de partida para acesso e ferramentas |
 
 As fotos mostram um Dell OptiPlex e appliances com múltiplas portas; não confirmam
 CPU, RAM, armazenamento, GPU, sistemas atuais ou a topologia completa. Há outros
