@@ -5,7 +5,7 @@
 | ID | Referência | Utilização atual | Limite |
 |---|---|---|---|
 | F01 | Enunciado local: `AF - Tecnologias Hackers 26-2.pdf`, 11 páginas | Requisitos, entregáveis e avaliação | Não determina uma arquitetura única |
-| F02 | [Relatório do projeto firewall](../../../projeto_firewall/relatorio/relatorio.md), inventário e topologia | Contexto histórico do kit | Caminho do workspace, indisponível em um clone isolado; não comprova configuração atual |
+| F02 | Relatório local do projeto firewall, inventário e topologia | Contexto histórico do kit | Arquivo externo a este repositório; não comprova a configuração atual |
 | F03 | Relato do usuário e duas fotos originais em `img/` | Tipos de equipamento, disponibilidade do Kali e preferências de trabalho | Não identifica recursos internos ou toda a topologia; fotos fora do Git |
 | F04 | [OWASP Juice Shop](https://owasp.org/projects/juice-shop) | Referência oficial do alvo exigido | Instruções específicas de instalação ainda serão consultadas |
 | F05 | [API do Ollama](https://docs.ollama.com/api/introduction) | Referência para possível integração local | Ollama ainda não foi escolhido nem instalado neste projeto |
