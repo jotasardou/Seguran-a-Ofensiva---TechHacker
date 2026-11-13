@@ -1,8 +1,8 @@
 # Laboratório — Juice Shop no Dell
 
-Este documento descreve somente o estado já implementado e validado no Dell.
-Acesso pelo Kali, execução automática e integração com o agente ainda não estão
-configurados.
+Este documento descreve o estado implementado e validado no Dell e o acesso pelo
+Kali através da VPN existente no pfSense. Execução automática e integração com o
+agente ainda não estão configuradas.
 
 ## Componentes confirmados
 
@@ -11,6 +11,7 @@ configurados.
 | Dell OptiPlex Micro 7020 | Ubuntu 22.04.5 LTS · `10.0.80.3/24` |
 | Gateway da LAN | pfSense `2.7.2-RELEASE` · `10.0.80.1` |
 | WAN do pfSense | `192.168.20.30` |
+| OpenVPN | servidor UDP/1194 · túnel `10.8.0.0/24` |
 | Node.js | `v24.22.2` · instalação no diretório do usuário |
 | npm | `11.19.1` |
 | OWASP Juice Shop | `v20.3.0` · pacote para Node 24, Linux x64 |
@@ -22,7 +23,7 @@ Dell e respondeu por loopback e LAN.
 ## Estrutura no Dell
 
 ```text
-/home/kit10/lab-tech-hacker/
+$HOME/lab-tech-hacker/
 ├── downloads/
 │   ├── SHASUMS256.txt
 │   ├── node-v24.22.2-linux-x64.tar.xz
@@ -41,10 +42,10 @@ Node.js. `apps/` contém a distribuição extraída do Juice Shop.
 No Ubuntu 22.04 do Dell, criar os diretórios sem privilégios administrativos:
 
 ```bash
-mkdir -p /home/kit10/lab-tech-hacker/downloads
-mkdir -p /home/kit10/lab-tech-hacker/runtime/node-v24.22.2
-mkdir -p /home/kit10/lab-tech-hacker/apps
-cd /home/kit10/lab-tech-hacker/downloads
+mkdir -p $HOME/lab-tech-hacker/downloads
+mkdir -p $HOME/lab-tech-hacker/runtime/node-v24.22.2
+mkdir -p $HOME/lab-tech-hacker/apps
+cd $HOME/lab-tech-hacker/downloads
 ```
 
 Baixar Node.js e sua lista oficial de checksums:
@@ -70,7 +71,7 @@ No diretório de downloads, o Node.js foi conferido contra a lista publicada pel
 próprio projeto:
 
 ```bash
-cd /home/kit10/lab-tech-hacker/downloads
+cd $HOME/lab-tech-hacker/downloads
 sha256sum -c <(grep ' node-v24.22.2-linux-x64.tar.xz$' SHASUMS256.txt)
 ```
 
@@ -100,23 +101,23 @@ juice-shop-20.3.0_node24_linux_x64.tgz: OK
 Após os dois resultados `OK`, extrair o Node.js no runtime versionado:
 
 ```bash
-tar -xJf /home/kit10/lab-tech-hacker/downloads/node-v24.22.2-linux-x64.tar.xz \
-  -C /home/kit10/lab-tech-hacker/runtime/node-v24.22.2 \
+tar -xJf $HOME/lab-tech-hacker/downloads/node-v24.22.2-linux-x64.tar.xz \
+  -C $HOME/lab-tech-hacker/runtime/node-v24.22.2 \
   --strip-components=1
 ```
 
 Extrair o Juice Shop. O pacote já contém a raiz `juice-shop_20.3.0/`:
 
 ```bash
-tar -xzf /home/kit10/lab-tech-hacker/downloads/juice-shop-20.3.0_node24_linux_x64.tgz \
-  -C /home/kit10/lab-tech-hacker/apps
+tar -xzf $HOME/lab-tech-hacker/downloads/juice-shop-20.3.0_node24_linux_x64.tgz \
+  -C $HOME/lab-tech-hacker/apps
 ```
 
 Validar as versões e a presença das dependências:
 
 ```bash
-/home/kit10/lab-tech-hacker/runtime/node-v24.22.2/bin/node --version
-cd /home/kit10/lab-tech-hacker/apps/juice-shop_20.3.0
+$HOME/lab-tech-hacker/runtime/node-v24.22.2/bin/node --version
+cd $HOME/lab-tech-hacker/apps/juice-shop_20.3.0
 test -f package.json && echo "package.json presente"
 test -d node_modules && echo "node_modules presente"
 ```
@@ -127,14 +128,24 @@ Entrar na raiz da aplicação é necessário porque ela usa caminhos relativos p
 configurações e arquivos:
 
 ```bash
-cd /home/kit10/lab-tech-hacker/apps/juice-shop_20.3.0
+cd $HOME/lab-tech-hacker/apps/juice-shop_20.3.0
 ```
 
 Executar explicitamente com o Node.js validado:
 
 ```bash
-/home/kit10/lab-tech-hacker/runtime/node-v24.22.2/bin/node build/app
+$HOME/lab-tech-hacker/runtime/node-v24.22.2/bin/node build/app
 ```
+
+Quando o diretório `bin` do Node.js validado já está no `PATH`, a forma curta
+equivalente, executada na raiz da aplicação, é:
+
+```bash
+npm start
+```
+
+O script `start` registrado no `package.json` executa `node build/app`. A forma
+curta depende de `node` e `npm` resolverem para a instalação versionada acima.
 
 O processo permanece no primeiro plano. Enquanto ele está ativo, a aplicação
 responde no Dell em:
@@ -158,6 +169,40 @@ curl -I --connect-timeout 5 http://10.0.80.3:3000
 
 Na validação realizada, o socket apareceu em `LISTEN` sem restrição a um endereço
 local específico e as duas requisições retornaram `HTTP/1.1 200 OK`.
+
+## Acesso pelo Kali através do OpenVPN
+
+O servidor OpenVPN preexistente no pfSense escuta em `192.168.20.30:1194/UDP`,
+usa a rede de túnel `10.8.0.0/24` e anuncia a rede local `10.0.80.0/24` aos
+clientes. O perfil cliente contém material criptográfico e permanece fora do
+repositório.
+
+No Kali, a conexão foi iniciada com o perfil exportado pelo pfSense:
+
+```bash
+sudo openvpn --config ~/Downloads/pfSense-UDP4-1194-config.ovpn
+```
+
+A mensagem `Initialization Sequence Completed` confirmou o estabelecimento do
+túnel. A interface `tun0` recebeu um endereço em `10.8.0.0/24`, e a consulta da
+rota para o Dell apontou para o gateway do túnel e para `tun0`.
+
+Com a VPN ativa, a requisição abaixo retornou `HTTP/1.1 200 OK` e o navegador do
+Kali renderizou o Juice Shop:
+
+```bash
+curl -I --connect-timeout 5 http://10.0.80.3:3000
+```
+
+Como controle negativo, a VPN foi encerrada com `Ctrl+C`. A interface `tun0`
+deixou de existir e a mesma requisição terminou por timeout. O par de testes
+demonstra que, neste cenário, o acesso do Kali ao Juice Shop dependeu do túnel.
+
+Uma tentativa anterior pelo endereço IPv4 público não produziu pacotes na captura
+da WAN do pfSense. O teste validado usa o endereço privado da WAN,
+`192.168.20.30`, alcançável a partir da rede local usada pelo notebook. Assim, a
+evidência comprova acesso VPN dentro da infraestrutura disponível, não publicação
+remota do servidor OpenVPN pela internet.
 
 ## Parar
 
@@ -193,7 +238,10 @@ reextração, caso seja necessário testar esse nível de recuperação.
 - O Juice Shop é iniciado manualmente e depende de um terminal aberto.
 - Não existe unidade `systemd` nem inicialização automática.
 - Não existe NAT WAN/3000 no pfSense.
-- O Kali em modo NAT ainda não possui caminho demonstrado até o Dell.
+- O Kali em modo NAT acessa o Dell pelo OpenVPN; sem `tun0`, o teste HTTP expirou.
+- A regra existente na aba OpenVPN permite acesso à rede `10.0.80.0/24`. O usuário
+  decidiu mantê-la sem restrição adicional para esta etapa do laboratório.
+- O acesso ao OpenVPN pelo IPv4 público não foi validado.
 - As regras antigas de WordPress e Nextcloud continuam no pfSense e não foram
   alteradas nesta etapa.
 - Nenhuma investigação de vulnerabilidade foi iniciada.

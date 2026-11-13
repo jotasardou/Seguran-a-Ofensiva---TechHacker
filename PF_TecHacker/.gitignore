@@ -1,6 +1,11 @@
 # Material original local; revisar antes de qualquer publicação.
 /AF - Tecnologias Hackers 26-2.pdf
 /img/WhatsApp Image *.jpeg
+/docs/diario.md
+/AGENTS.md
+*.ovpn
+*.ovpn.part
+*.pcap
 
 # Credenciais e configuração local.
 .env

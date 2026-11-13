@@ -18,6 +18,8 @@
 | F12 | [Instalar Docker Engine no Ubuntu](https://docs.docker.com/engine/install/ubuntu/), requisitos e instalação pelo repositório `apt` | Preparar instalação reproduzível no Ubuntu 22.04 do Dell | Docker alerta que portas publicadas podem contornar regras do UFW; nenhuma porta será publicada externamente nesta primeira validação |
 | F13 | [Downloads oficiais do Node.js](https://nodejs.org/en/download) | Selecionar uma versão LTS compatível e um binário oficial para o Dell | A versão concreta e seu checksum serão fixados antes da instalação |
 | F14 | [Release v20.3.0 do Juice Shop](https://github.com/juice-shop/juice-shop/releases/tag/v20.3.0) | Fixar a versão da aplicação em vez de depender do estado futuro da branch principal | O nome do pacote Linux/Node e sua integridade ainda serão confirmados antes do download |
+| F15 | [Port Forwarding — pfSense](https://docs.netgate.com/pfsense/en/latest/nat/port-forwards.html) e [Packet Capture GUI](https://docs.netgate.com/pfsense/en/latest/diagnostics/packetcapture/webgui.html) | Avaliar NAT TCP/3000 e diagnosticar a tentativa OpenVPN pelo IPv4 público | O encaminhamento TCP/3000 foi considerado, mas não implementado; a captura não observou UDP/1194 na WAN durante a tentativa pública |
+| F16 | [OpenVPN Remote Access](https://docs.netgate.com/pfsense/en/latest/recipes/openvpn-ra.html), [Tunnel Settings](https://docs.netgate.com/pfsense/en/latest/vpn/openvpn/configure-server-tunnel.html) e [OpenVPN Firewall Rules](https://docs.netgate.com/pfsense/en/latest/vpn/openvpn/firewall-rules.html) | Interpretar rede do túnel, rota local enviada ao cliente e regras que permitem tráfego do cliente VPN à LAN | Consultadas em 13/11/2026; a documentação descreve o mecanismo, mas a escolha de manter a regra ampla é decisão do usuário |
 
 As referências web foram consultadas durante o planejamento inicial. Não há ainda
 implementação derivada delas. O vínculo com arquivos e validações será acrescentado
@@ -47,3 +49,14 @@ como se fosse uma fonte consultada. Confirmar instruções e versões no momento
   Juice Shop será executado diretamente no Ubuntu do Dell, sem Docker. A primeira
   opção a avaliar é a distribuição pré-empacotada oficial, com versões e checksum
   fixados. Fontes F13 e F14.
+- **D07 — avaliação do NAT da WAN:** NAT TCP/3000 com origem `any` foi aceito como
+  opção em 30/10/2026, mas nenhuma regra foi criada. A opção foi substituída pelo
+  uso da VPN preexistente após os testes de conectividade. Fonte F15.
+- **D08 — acesso pelo OpenVPN:** validado em 13/11/2026 a partir do Kali. O perfil
+  permanece fora do Git por conter material sensível; o servidor anuncia a rede
+  `10.0.80.0/24`, e o teste com e sem `tun0` demonstrou a dependência do túnel.
+  Fonte F16.
+- **D09 — regra OpenVPN existente:** após a validação, o usuário decidiu manter a
+  regra que permite acesso dos clientes VPN à rede `10.0.80.0/24`, sem restringi-la
+  nesta etapa. Esta é uma decisão de escopo do laboratório, não uma exigência nem
+  recomendação da fonte F16.

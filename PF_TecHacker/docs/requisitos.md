@@ -4,8 +4,8 @@ Fonte: **AF - Tecnologias Hackers 26-2.pdf**, 11 páginas, lido integralmente.
 O original fica na raiz local do projeto e não integra o versionamento inicial.
 Esta matriz resume o enunciado; não substitui sua consulta.
 
-Todos os requisitos abaixo estão **pendentes de implementação ou validação**.
-Uma referência a uma etapa é planejamento, não evidência de conclusão.
+R01 e R07 foram validados no laboratório; os demais seguem pendentes. Uma
+referência a uma etapa indica planejamento, não evidência de conclusão.
 
 | ID | Requisito | Critério de conclusão | Etapas | Fonte |
 |---|---|---|---|---|
