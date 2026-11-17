@@ -69,9 +69,53 @@ def validate(proposal: dict[str, object]) -> list[str]:
     if not allowed_url:
         return ["A URL deve apontar somente para http://10.0.80.3:3000."]
     options = args[:-1]
+    if url == BASE_URL + "/rest/user/login" and len(options) == 7 and options[:6] == [
+        "-sS", "-X", "POST", "-H", "Content-Type: application/json", "--data-raw"
+    ]:
+        try:
+            body = json.loads(options[6])
+        except json.JSONDecodeError:
+            return ["O corpo do login precisa ser JSON válido."]
+        if (isinstance(body, dict) and set(body) == {"email", "password"}
+                and all(isinstance(value, str) and len(value) <= 256 for value in body.values())):
+            return []
+        return ["O login aceita apenas email e password como textos de até 256 caracteres."]
     if options not in ([], ["-I"], ["-I", "--connect-timeout", "5"], ["--connect-timeout", "5"]):
-        return ["Opções curl permitidas: -I e --connect-timeout 5, antes da URL."]
+        return ["Opções curl não autorizadas; POST só é permitido em /rest/user/login."]
     return []
+
+
+def public_proposal(proposal: dict[str, object]) -> dict[str, object]:
+    """Remove a senha da proposta antes de exibir ou registrar."""
+    safe = dict(proposal)
+    args = list(proposal["args"])
+    if "--data-raw" in args:
+        index = args.index("--data-raw") + 1
+        if index < len(args):
+            try:
+                body = json.loads(args[index])
+                if isinstance(body, dict) and "password" in body:
+                    body["password"] = "[REDACTED]"
+                    args[index] = json.dumps(body, ensure_ascii=False)
+            except json.JSONDecodeError:
+                args[index] = "[REDACTED]"
+    safe["args"] = args
+    return safe
+
+
+def public_result(output: str) -> str:
+    """Resume respostas de login sem expor tokens de autenticação."""
+    try:
+        response, status = output.rsplit("\nHTTP_STATUS:", 1)
+        data = json.loads(response)
+        if isinstance(data, dict) and isinstance(data.get("authentication"), dict):
+            auth = data["authentication"]
+            return f'HTTP_STATUS:{status.strip()}\nauthentication: umail={auth.get("umail")}, token=[REDACTED]'
+        if isinstance(data, dict) and data.get("status") == "totp_token_required":
+            return f"HTTP_STATUS:{status.strip()}\nstatus: totp_token_required; tmpToken=[REDACTED]"
+    except (ValueError, json.JSONDecodeError):
+        pass
+    return output
 
 
 def read_modified_proposal() -> str:
@@ -89,8 +133,12 @@ def execute(proposal: dict[str, object]) -> tuple[int, str]:
     args = proposal["args"]
     assert isinstance(tool, str) and isinstance(args, list)
     command = [tool, *args]
+    if tool == "curl" and "--data-raw" in args:
+        command += ["-w", "\nHTTP_STATUS:%{http_code}"]
     completed = subprocess.run(command, capture_output=True, text=True, timeout=30, check=False)
     output = (completed.stdout + completed.stderr)[-12000:]
+    if tool == "curl" and "--data-raw" in args:
+        output = public_result(output)
     return completed.returncode, output
 
 
@@ -105,7 +153,10 @@ def main() -> int:
         "Responda SOMENTE JSON com os campos tool, args e rationale. "
         "args deve conter apenas argumentos, sem o nome da ferramenta. "
         "Para curl use URL completa no alvo autorizado; para nmap use exatamente "
-        "args [\"-p\", \"3000\", \"10.0.80.3\"]. Não proponha ações destrutivas."
+        "args [\"-p\", \"3000\", \"10.0.80.3\"]. Para testar login, curl aceita "
+        "-sS -X POST -H 'Content-Type: application/json' --data-raw com JSON "
+        "email/password e URL /rest/user/login. Uma tentativa por proposta. "
+        "Não proponha ações destrutivas."
     )
     messages = [{"role": "system", "content": system}, {"role": "user", "content": hypothesis}]
     record("session_started", model=MODEL, target=BASE_URL, hypothesis=hypothesis)
@@ -115,8 +166,8 @@ def main() -> int:
             raw = ask_ollama(messages)
             proposal = extract_proposal(raw)
             errors = validate(proposal)
-            record("proposal", raw=raw, proposal=proposal, validation_errors=errors)
-            print(json.dumps(proposal, ensure_ascii=False, indent=2))
+            record("proposal", proposal=public_proposal(proposal), validation_errors=errors)
+            print(json.dumps(public_proposal(proposal), ensure_ascii=False, indent=2))
             if errors:
                 print("BLOQUEADA:", "; ".join(errors))
                 decision = input("[m]odificar ou [r]ejeitar: ").strip().lower()
@@ -130,7 +181,7 @@ def main() -> int:
                 modified = read_modified_proposal()
                 proposal = extract_proposal(modified)
                 errors = validate(proposal)
-                record("human_decision", decision="modified", proposal=proposal, validation_errors=errors)
+                record("human_decision", decision="modified", proposal=public_proposal(proposal), validation_errors=errors)
                 if errors:
                     print("Modificação bloqueada:", "; ".join(errors))
                     return 2
@@ -140,10 +191,10 @@ def main() -> int:
             else:
                 record("human_decision", decision="approved")
             code, output = execute(proposal)
-            record("tool_result", tool=proposal["tool"], args=proposal["args"], returncode=code, output=output)
+            record("tool_result", tool=proposal["tool"], args=public_proposal(proposal)["args"], returncode=code, output=output)
             print(f"\nResultado (código {code}):\n{output}")
             messages.extend([
-                {"role": "assistant", "content": json.dumps(proposal, ensure_ascii=False)},
+                {"role": "assistant", "content": json.dumps(public_proposal(proposal), ensure_ascii=False)},
                 {"role": "user", "content": f"Resultado da ferramenta (código {code}):\n{output}"},
             ])
         except (OSError, ValueError, json.JSONDecodeError, KeyError) as error:
