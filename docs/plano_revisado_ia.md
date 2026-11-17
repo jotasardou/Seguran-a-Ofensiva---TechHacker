@@ -4,10 +4,11 @@ Data: 17/11/2026. Autoria: assistente de IA nesta conversa, após o registro
 [humano](plano_humano.md). Esta proposta não é uma revisão pelo modelo local
 do projeto; essa revisão ainda precisa ser realizada e registrada.
 
-O plano humano identifica categorias e ferramentas, mas não formula hipóteses,
-estratégias ou critérios de evidência. Houve explorações manuais preliminares
-antes de sua formalização. Essas limitações devem ser declaradas na entrega;
-esta proposta não transforma retrospectivamente o plano em independente e completo.
+Esta proposta foi redigida antes da versão atual do plano humano. O grupo
+posteriormente registrou hipóteses, estratégias, ferramentas, evidências e
+selecionou Five Star Feedback, Login Admin e Confidential Document. Houve
+explorações manuais preliminares antes da formalização do plano. Este arquivo
+é histórico e não representa a revisão pelo modelo local exigida em R09.
 
 ## Escopo e propostas
 
@@ -47,7 +48,6 @@ modelo, com registros de proposta, decisão, execução e interpretação.
 
 ## Decisões e próximos passos
 
-O usuário autorizou a elaboração desta proposta. Aceite, modificação ou rejeição
-de cada sugestão, com justificativa, permanecem pendentes. O modelo local deverá
-revisar o plano humano e suas sugestões e decisões deverão ser registradas antes
-das investigações. Não foram executadas ferramentas ou testes nesta revisão.
+O usuário autorizou a elaboração desta proposta histórica. A revisão posterior
+do modelo local e as decisões delegadas estão em [revisao_modelo_local.md](revisao_modelo_local.md).
+Não foram executadas ferramentas ou testes nesta proposta histórica.
