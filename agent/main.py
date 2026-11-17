@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import time
 from pathlib import Path
@@ -40,8 +41,11 @@ def extract_proposal(text: str) -> dict[str, object]:
     proposal = json.loads(text[start : end + 1])
     if proposal.get("tool") not in {"curl", "nmap"}:
         raise ValueError("Ferramenta fora da lista autorizada.")
-    if not isinstance(proposal.get("args"), list) or not all(isinstance(x, str) for x in proposal["args"]):
-        raise ValueError("args deve ser uma lista de textos.")
+    args = proposal.get("args")
+    if isinstance(args, str):
+        proposal["args"] = shlex.split(args)
+    elif not isinstance(args, list) or not all(isinstance(x, str) for x in args):
+        raise ValueError("args deve ser uma lista ou texto de argumentos.")
     return proposal
 
 
