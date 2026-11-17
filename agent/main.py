@@ -27,7 +27,7 @@ def record(event: str, **data: object) -> None:
 
 
 def ask_ollama(messages: list[dict[str, str]]) -> str:
-    body = json.dumps({"model": MODEL, "messages": messages, "stream": False}).encode()
+    body = json.dumps({"model": MODEL, "messages": messages, "stream": False, "format": "json"}).encode()
     request = Request(OLLAMA_URL, data=body, headers={"Content-Type": "application/json"})
     with urlopen(request, timeout=120) as response:
         payload = json.loads(response.read())
