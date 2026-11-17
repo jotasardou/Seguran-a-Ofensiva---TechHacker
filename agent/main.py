@@ -54,6 +54,19 @@ def validate(proposal: dict[str, object]) -> list[str]:
     args = proposal["args"]
     assert isinstance(tool, str) and isinstance(args, list)
     joined = " ".join(args)
+    if tool == "nmap":
+        if TARGET not in args:
+            return ["nmap deve apontar somente para 10.0.80.3."]
+        if "-p" not in args or "3000" not in args:
+            return ["nmap deve usar a sintaxe -p 3000 10.0.80.3."]
+        if any(value.isdigit() and value != "3000" for value in args):
+            return ["nmap recebeu uma porta sem a opção -p."]
+        if any(value.endswith("/tcp") or value.endswith("/udp") for value in args):
+            return ["nmap não deve reutilizar linhas de saída como argumentos."]
+        allowed = {TARGET, "-p", "3000", "-Pn", "-sV"}
+        if any(value not in allowed for value in args):
+            return ["nmap recebeu um argumento não autorizado."]
+        return []
     if any(value in joined for value in ["10.0.80.3:3000", "10.0.80.3"]):
         return []
     if tool == "curl" and any(value.startswith("http://") or value.startswith("https://") for value in args):
@@ -83,8 +96,8 @@ def main() -> int:
         f"{BASE_URL}. Ferramentas disponíveis: curl e nmap. "
         "Responda SOMENTE JSON com os campos tool, args e rationale. "
         "args deve conter apenas argumentos, sem o nome da ferramenta. "
-        "Para curl use URL completa no alvo autorizado; para nmap use 10.0.80.3 "
-        "e, preferencialmente, uma porta explícita. Não proponha ações destrutivas."
+        "Para curl use URL completa no alvo autorizado; para nmap use exatamente "
+        "args [\"-p\", \"3000\", \"10.0.80.3\"]. Não proponha ações destrutivas."
     )
     messages = [{"role": "system", "content": system}, {"role": "user", "content": hypothesis}]
     record("session_started", model=MODEL, target=BASE_URL, hypothesis=hypothesis)
