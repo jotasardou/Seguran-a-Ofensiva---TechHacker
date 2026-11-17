@@ -12,6 +12,7 @@ agente ainda não estão configuradas.
 | Gateway da LAN | pfSense `2.7.2-RELEASE` · `10.0.80.1` |
 | WAN do pfSense | `192.168.20.30` |
 | OpenVPN | servidor UDP/1194 · túnel `10.8.0.0/24` |
+| Agente | Kali Linux conectado ao laboratório pelo OpenVPN |
 | Node.js | `v24.22.2` · instalação no diretório do usuário |
 | npm | `11.19.1` |
 | OWASP Juice Shop | `v20.3.0` · pacote para Node 24, Linux x64 |
