@@ -111,7 +111,7 @@ def main() -> int:
             print(json.dumps(proposal, ensure_ascii=False, indent=2))
             if errors:
                 print("BLOQUEADA:", "; ".join(errors))
-                decision = "r"
+                decision = input("[m]odificar ou [r]ejeitar: ").strip().lower()
             else:
                 decision = input("[a]provar, [m]odificar, [r]ejeitar: ").strip().lower()
             if decision == "r":
