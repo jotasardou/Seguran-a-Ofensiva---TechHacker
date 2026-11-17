@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -53,27 +54,34 @@ def validate(proposal: dict[str, object]) -> list[str]:
     tool = proposal["tool"]
     args = proposal["args"]
     assert isinstance(tool, str) and isinstance(args, list)
-    joined = " ".join(args)
     if tool == "nmap":
-        if TARGET not in args:
-            return ["nmap deve apontar somente para 10.0.80.3."]
-        if "-p" not in args or "3000" not in args:
-            return ["nmap deve usar a sintaxe -p 3000 10.0.80.3."]
-        if any(value.isdigit() and value != "3000" for value in args):
-            return ["nmap recebeu uma porta sem a opção -p."]
-        if any(value.endswith("/tcp") or value.endswith("/udp") for value in args):
-            return ["nmap não deve reutilizar linhas de saída como argumentos."]
-        allowed = {TARGET, "-p", "3000", "-Pn", "-sV"}
-        if any(value not in allowed for value in args):
-            return ["nmap recebeu um argumento não autorizado."]
-        return []
-    if any(value in joined for value in ["10.0.80.3:3000", "10.0.80.3"]):
-        return []
-    if tool == "curl" and any(value.startswith("http://") or value.startswith("https://") for value in args):
-        return ["curl deve apontar para o Juice Shop autorizado."]
-    if tool == "nmap" and TARGET not in args:
-        return ["nmap deve apontar somente para 10.0.80.3."]
-    return ["A proposta não identifica o alvo autorizado."]
+        return [] if args == ["-p", "3000", TARGET] else ["Use exatamente: -p 3000 10.0.80.3."]
+    if not args:
+        return ["curl precisa de uma URL autorizada."]
+    url = args[-1]
+    try:
+        parsed = urlsplit(url)
+        allowed_url = (parsed.scheme == "http" and parsed.hostname == TARGET
+                       and parsed.port == 3000 and not parsed.username
+                       and not parsed.password and not parsed.fragment)
+    except ValueError:
+        allowed_url = False
+    if not allowed_url:
+        return ["A URL deve apontar somente para http://10.0.80.3:3000."]
+    options = args[:-1]
+    if options not in ([], ["-I"], ["-I", "--connect-timeout", "5"], ["--connect-timeout", "5"]):
+        return ["Opções curl permitidas: -I e --connect-timeout 5, antes da URL."]
+    return []
+
+
+def read_modified_proposal() -> str:
+    print("Cole o JSON em uma linha ou em várias linhas; encerre com uma linha contendo apenas FIM.")
+    lines: list[str] = []
+    while True:
+        line = input("JSON> ")
+        if line.strip() == "FIM":
+            return "\n".join(lines)
+        lines.append(line)
 
 
 def execute(proposal: dict[str, object]) -> tuple[int, str]:
@@ -119,7 +127,7 @@ def main() -> int:
                 print("Proposta rejeitada. Encerrando esta sessão.")
                 return 0
             if decision == "m":
-                modified = input("Informe a proposta JSON modificada: ").strip()
+                modified = read_modified_proposal()
                 proposal = extract_proposal(modified)
                 errors = validate(proposal)
                 record("human_decision", decision="modified", proposal=proposal, validation_errors=errors)
