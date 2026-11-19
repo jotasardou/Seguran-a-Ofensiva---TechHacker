@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from agent.main import BASE_URL, main, public_proposal, public_result, read_block, validate
+from agent.main import BASE_URL, INTERPRETATION_SCHEMA, main, parse_interpretation, public_proposal, public_result, read_block, validate
 
 
 class AgentPolicyTests(unittest.TestCase):
@@ -34,13 +34,29 @@ class AgentPolicyTests(unittest.TestCase):
 
     def test_session_executes_only_one_approved_action(self):
         proposal = json.dumps({"tool": "curl", "args": [BASE_URL]})
+        interpretation = json.dumps({"interpretacao": "respondeu", "limite": "sem conclusão", "proximo_passo": "revisar"})
         with patch("builtins.input", side_effect=["hipótese", "FIM", "a"]), \
-             patch("agent.main.ask_ollama", side_effect=[proposal, '{"interpretacao":"ok"}']) as model, \
+             patch("agent.main.ask_ollama", side_effect=[proposal, interpretation]) as model, \
              patch("agent.main.execute", return_value=(0, "HTTP 200")) as execute, \
              patch("agent.main.record"):
             self.assertEqual(main(), 0)
             execute.assert_called_once()
             self.assertEqual(model.call_count, 2)
+            self.assertEqual(model.call_args.kwargs["format"], INTERPRETATION_SCHEMA)
+
+    def test_tool_proposal_is_not_accepted_as_interpretation(self):
+        with self.assertRaisesRegex(ValueError, "Interpretação deve conter"):
+            parse_interpretation('{"tool":"nmap","args":["-p","3000","10.0.80.3"]}')
+
+    def test_invalid_interpretation_ends_session_without_another_action(self):
+        proposal = json.dumps({"tool": "nmap", "args": ["-p", "3000", "10.0.80.3"]})
+        with patch("builtins.input", side_effect=["hipótese", "FIM", "a"]), \
+             patch("agent.main.ask_ollama", side_effect=[proposal, proposal]), \
+             patch("agent.main.execute", return_value=(0, "3000/tcp open")) as execute, \
+             patch("agent.main.record") as record:
+            self.assertEqual(main(), 2)
+            execute.assert_called_once()
+            self.assertIn("interpretation_invalid", [call.args[0] for call in record.call_args_list])
 
 
 if __name__ == "__main__":

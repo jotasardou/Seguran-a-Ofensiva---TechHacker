@@ -27,8 +27,16 @@ def record(event: str, **data: object) -> None:
         stream.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 
-def ask_ollama(messages: list[dict[str, str]]) -> str:
-    body = json.dumps({"model": MODEL, "messages": messages, "stream": False, "format": "json"}).encode()
+INTERPRETATION_SCHEMA = {
+    "type": "object",
+    "properties": {field: {"type": "string"} for field in ("interpretacao", "limite", "proximo_passo")},
+    "required": ["interpretacao", "limite", "proximo_passo"],
+    "additionalProperties": False,
+}
+
+
+def ask_ollama(messages: list[dict[str, str]], *, format: str | dict = "json") -> str:
+    body = json.dumps({"model": MODEL, "messages": messages, "stream": False, "format": format}).encode()
     request = Request(OLLAMA_URL, data=body, headers={"Content-Type": "application/json"})
     with urlopen(request, timeout=120) as response:
         payload = json.loads(response.read())
@@ -118,6 +126,18 @@ def public_result(output: str) -> str:
     return output
 
 
+def parse_interpretation(raw: str) -> dict[str, str]:
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise ValueError("Interpretação não é JSON válido.") from error
+    expected = set(INTERPRETATION_SCHEMA["required"])
+    if (not isinstance(result, dict) or set(result) != expected
+            or not all(isinstance(result[key], str) and result[key].strip() for key in expected)):
+        raise ValueError("Interpretação deve conter somente interpretacao, limite e proximo_passo como textos não vazios.")
+    return result
+
+
 def read_block(label: str) -> str:
     print(f"Cole {label} em uma linha ou em várias linhas; termine com FIM sozinho em uma linha.")
     lines: list[str] = []
@@ -196,16 +216,18 @@ def main() -> int:
             code, output = execute(proposal)
             record("tool_result", tool=proposal["tool"], args=public_proposal(proposal)["args"], returncode=code, output=output)
             print(f"\nResultado (código {code}):\n{output}")
-            messages.extend([
-                {"role": "assistant", "content": json.dumps(public_proposal(proposal), ensure_ascii=False)},
-                {"role": "user", "content": f"Resultado da ferramenta (código {code}):\n{output}"},
-            ])
-            interpretation = ask_ollama([
-                {"role": "system", "content": "Responda somente JSON com os campos interpretacao, limite e proximo_passo. Não proponha comandos nem afirme vulnerabilidade sem evidência."},
-                *messages[1:],
-            ])
+            interpretation_raw = ask_ollama([
+                {"role": "system", "content": "Analise o resultado já obtido. Responda somente JSON com interpretacao, limite e proximo_passo. Não proponha ferramentas ou comandos nem afirme vulnerabilidade sem evidência."},
+                {"role": "user", "content": f"Hipótese: {hypothesis}\nResultado da ferramenta {proposal['tool']} (código {code}):\n{output}"},
+            ], format=INTERPRETATION_SCHEMA)
+            try:
+                interpretation = parse_interpretation(interpretation_raw)
+            except ValueError as error:
+                record("interpretation_invalid", reason=str(error), text=interpretation_raw)
+                print(f"Interpretação inválida: {error}")
+                return 2
             record("interpretation", text=interpretation)
-            print(f"\nInterpretação do modelo:\n{interpretation}")
+            print(f"\nInterpretação do modelo:\n{json.dumps(interpretation, ensure_ascii=False)}")
             print("Sessão encerrada após uma execução supervisionada.")
             return 0
     except (OSError, ValueError, json.JSONDecodeError, KeyError, subprocess.TimeoutExpired) as error:

@@ -26,6 +26,9 @@ em uma linha para encerrá-la. Ele mostra a proposta e oferece `a` (aprovar),
 `FIM`. Após uma execução aprovada, o resultado é enviado ao modelo para
 interpretação; a sessão termina após essa única ação. Para outra hipótese,
 inicie uma nova sessão.
+Na interpretação, o agente exige `interpretacao`, `limite` e `proximo_passo` como
+textos não vazios. Se o modelo devolver outra proposta de ferramenta, a resposta
+é registrada como inválida e nenhuma segunda ação é executada.
 
 Para Login Admin, o `curl` aceita POST somente em `/rest/user/login`, com
 `email` e `password` em JSON e uma tentativa por proposta. A resposta de
