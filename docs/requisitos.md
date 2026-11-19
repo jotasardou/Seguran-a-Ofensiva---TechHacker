@@ -4,7 +4,12 @@ Fonte: **AF - Tecnologias Hackers 26-2.pdf**, 11 páginas, lido integralmente.
 O original fica na raiz local do projeto e não integra o versionamento inicial.
 Esta matriz resume o enunciado; não substitui sua consulta.
 
-R01 e R07 foram validados no laboratório; os demais seguem pendentes. Uma
+R01 e R07 foram validados no laboratório. Há evidências atuais para a integração
+do modelo, duas ferramentas, supervisão, restrição de escopo, revisão do plano e
+um erro concreto da IA (R02, R03, R04, R06, R09 e R14), mas a conferência final
+desses requisitos ainda deve relacionar documentos, registros e commits. R05
+permanece sem demonstração de adaptação entre ações; R10 permanece incompleto
+até a terceira investigação; relatório e vídeo também estão pendentes. Uma
 referência a uma etapa indica planejamento, não evidência de conclusão.
 
 | ID | Requisito | Critério de conclusão | Etapas | Fonte |

@@ -53,9 +53,56 @@ O agente foi alterado para ler a hipótese até `FIM`, executar no máximo uma
 ação por sessão e pedir interpretação após o resultado. Essa mudança precisa
 ser enviada ao Kali e validada no laboratório antes de retomar T16.
 
-## Próxima coleta
+## Tentativa modificada supervisionada
 
-Executar uma única tentativa modificada supervisionada e registrar status HTTP,
-identidade devolvida e decisão humana. O agente deve omitir tokens e senhas na
-saída compartilhada. Somente a comparação entre controle e tentativa modificada
-permitirá concluir a investigação.
+Em 19/11/2026, após atualizar o Kali para a versão com validação estruturada da
+interpretação, o operador iniciou uma nova sessão com uma única tentativa. Os
+cinco eventos finais do JSONL original foram preservados no Kali e compartilhados
+de forma sanitizada para conferência:
+
+1. A hipótese mencionou explicitamente o controle anterior `HTTP 401` e pediu
+   que o resultado fosse comparado com ele.
+2. O modelo propôs um POST sem a URL. O agente bloqueou a proposta com o erro
+   `A URL deve apontar somente para http://10.0.80.3:3000.`.
+3. O operador escolheu `modified` e forneceu uma requisição para o endpoint
+   autorizado, com uma entrada modificada no campo `email` e senha fictícia. A
+   política local registrou `validation_errors: []` antes da execução.
+4. Uma única chamada de `curl` foi executada. Ela retornou código de saída 0,
+   `HTTP_STATUS:200` e `authentication: umail=admin@juice-sh.op,
+   token=[REDACTED]`. A senha também foi omitida do registro compartilhado.
+5. O modelo devolveu os três campos estruturados exigidos e a sessão foi
+   encerrada sem executar outra ferramenta.
+
+Os horários do log vão de `2026-11-19T07:12:21-0500` a
+`2026-11-19T07:13:02-0500`. O fuso é preservado como registrado pelo Kali; não
+foi convertido para o horário desta documentação.
+
+## Comparação e conclusão
+
+No controle, credenciais fictícias comuns produziram `HTTP_STATUS:401` e
+`Invalid email or password.`. Na tentativa modificada, uma senha incorreta
+acompanhada da entrada alterada no campo `email` produziu `HTTP_STATUS:200`, um
+token e a identidade `admin@juice-sh.op`. A diferença observada sustenta, nesta
+instância do laboratório, bypass de autenticação por injeção no campo `email` e
+emissão de uma sessão identificada como administrativa.
+
+O token não foi usado posteriormente para realizar uma operação administrativa.
+Essa ausência limita a demonstração de privilégios efetivos após o login, mas
+não elimina a evidência de que o próprio endpoint de autenticação emitiu token e
+identidade administrativa sem a senha correta. Não foram feitas novas variações
+do payload, pois a repetição não acrescentaria a comparação necessária.
+
+## Avaliação da contribuição do modelo
+
+O modelo chamou o resultado de possível *session hijacking* ou *session
+takeover*. Essa classificação não é sustentada: nenhuma sessão preexistente foi
+roubada; o servidor emitiu uma nova sessão após a entrada modificada. O modelo
+também sugeriu consultar novamente o endpoint de login e repetir o teste com
+outras entradas, embora a comparação planejada já estivesse completa.
+
+O caso mostra simultaneamente contribuição e limitação da IA. O modelo gerou uma
+proposta inicial incompleta, que a política bloqueou; a intervenção humana
+corrigiu alvo e parâmetros; e a interpretação final teve formato válido, mas
+conteúdo técnico parcialmente incorreto. A validação por esquema garantiu a
+estrutura da resposta, não sua correção. As repetições sugeridas não foram
+executadas.
