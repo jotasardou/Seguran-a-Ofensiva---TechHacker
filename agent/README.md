@@ -35,3 +35,20 @@ Para Login Admin, o `curl` aceita POST somente em `/rest/user/login`, com
 autenticação é resumida sem exibir o token, e senhas são omitidas do log.
 Os arquivos em `agent/logs/` permanecem fora do Git. O operador deve revisar
 propostas e resultados antes de compartilhar qualquer transcrição.
+
+## Five Star Feedback
+
+Com um token de **conta comum**, a política aceita somente duas formas adicionais:
+
+- `GET /api/Feedbacks`, para consultar a coleção;
+- `DELETE /api/Feedbacks/<id>`, para excluir um único ID numérico.
+
+O único cabeçalho adicional aceito nessas formas é `Authorization: Bearer <token>`.
+O token é substituído por `[REDACTED]` na tela e no JSONL. Outros alvos, rotas,
+métodos, cabeçalhos, parâmetros de consulta e IDs não numéricos são bloqueados.
+Consulta e exclusão precisam ocorrer em sessões separadas, pois cada sessão segue
+limitada a uma execução e exige aprovação humana. A inclusão dessa capacidade não
+autoriza uma exclusão automática: o operador deve conferir o ID retornado e a
+proposta antes de aprová-la. A política valida o formato do token, mas não consulta
+o perfil da conta nem verifica sua assinatura; cabe ao operador obter e fornecer
+um token de uma conta comum criada para o laboratório, nunca o token administrativo.

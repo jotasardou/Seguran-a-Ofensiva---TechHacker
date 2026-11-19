@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import time
@@ -18,11 +19,22 @@ BASE_URL = f"http://{TARGET}:3000"
 OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:0.5b")
 LOG = Path(__file__).with_name("logs") / "session.jsonl"
+BEARER_SECRET = re.compile(r"(Authorization: Bearer )[A-Za-z0-9._~-]+")
+
+
+def redact_bearer(value: object) -> object:
+    if isinstance(value, str):
+        return BEARER_SECRET.sub(r"\1[REDACTED]", value)
+    if isinstance(value, list):
+        return [redact_bearer(item) for item in value]
+    if isinstance(value, dict):
+        return {key: redact_bearer(item) for key, item in value.items()}
+    return value
 
 
 def record(event: str, **data: object) -> None:
     LOG.parent.mkdir(parents=True, exist_ok=True)
-    item = {"time": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "event": event, **data}
+    item = redact_bearer({"time": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "event": event, **data})
     with LOG.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(item, ensure_ascii=False) + "\n")
 
@@ -88,13 +100,32 @@ def validate(proposal: dict[str, object]) -> list[str]:
                 and all(isinstance(value, str) and len(value) <= 256 for value in body.values())):
             return []
         return ["O login aceita apenas email e password como textos de até 256 caracteres."]
+    feedback_path = parsed.path
+    is_feedback_collection = feedback_path == "/api/Feedbacks"
+    is_feedback_item = re.fullmatch(r"/api/Feedbacks/[1-9][0-9]*", feedback_path) is not None
+    if is_feedback_collection or is_feedback_item:
+        if parsed.query:
+            return ["Rotas de feedback não aceitam parâmetros de consulta."]
+        if len(options) not in (3, 5) or options[:2] != ["-sS", "-H"]:
+            return ["Use somente -sS e o cabeçalho Authorization autorizado para feedbacks."]
+        header = options[2]
+        token = header.removeprefix("Authorization: Bearer ")
+        if not re.fullmatch(r"[A-Za-z0-9._~-]+", token):
+            return ["Feedbacks exigem Authorization: Bearer com token válido e sem espaços."]
+        if is_feedback_collection and len(options) == 3:
+            return []
+        if is_feedback_item and options[3:] == ["-X", "DELETE"]:
+            return []
+        return ["Feedbacks permitem apenas GET /api/Feedbacks ou DELETE /api/Feedbacks/<id>."]
+    if feedback_path.startswith("/api/Feedbacks"):
+        return ["Rota de feedback não autorizada."]
     if options not in ([], ["-I"], ["-I", "--connect-timeout", "5"], ["--connect-timeout", "5"]):
         return ["Opções curl não autorizadas; POST só é permitido em /rest/user/login."]
     return []
 
 
 def public_proposal(proposal: dict[str, object]) -> dict[str, object]:
-    """Remove a senha da proposta antes de exibir ou registrar."""
+    """Remove credenciais da proposta antes de exibir ou registrar."""
     safe = dict(proposal)
     args = list(proposal["args"])
     if "--data-raw" in args:
@@ -107,8 +138,11 @@ def public_proposal(proposal: dict[str, object]) -> dict[str, object]:
                     args[index] = json.dumps(body, ensure_ascii=False)
             except json.JSONDecodeError:
                 args[index] = "[REDACTED]"
+    for index, arg in enumerate(args):
+        if arg.startswith("Authorization: Bearer "):
+            args[index] = "Authorization: Bearer [REDACTED]"
     safe["args"] = args
-    return safe
+    return redact_bearer(safe)
 
 
 def public_result(output: str) -> str:
@@ -152,11 +186,14 @@ def execute(proposal: dict[str, object]) -> tuple[int, str]:
     tool = proposal["tool"]
     args = proposal["args"]
     assert isinstance(tool, str) and isinstance(args, list)
-    command = [tool, *args]
-    if tool == "curl" and "--data-raw" in args:
+    command = [tool, "-q", *args] if tool == "curl" else [tool, *args]
+    if tool == "curl" and ("--data-raw" in args or "Authorization: Bearer " in "\n".join(args)):
         command += ["-w", "\nHTTP_STATUS:%{http_code}"]
     completed = subprocess.run(command, capture_output=True, text=True, timeout=30, check=False)
     output = (completed.stdout + completed.stderr)[-12000:]
+    for arg in args:
+        if arg.startswith("Authorization: Bearer "):
+            output = output.replace(arg.removeprefix("Authorization: Bearer "), "[REDACTED]")
     if tool == "curl" and "--data-raw" in args:
         output = public_result(output)
     return completed.returncode, output
@@ -180,7 +217,11 @@ def main() -> int:
         "args [\"-p\", \"3000\", \"10.0.80.3\"]. Para testar login, curl aceita "
         "-sS -X POST -H 'Content-Type: application/json' --data-raw com JSON "
         "email/password e URL /rest/user/login. Uma tentativa por proposta. "
-        "Não proponha ações destrutivas."
+        "Para feedbacks, use token de conta comum somente no cabeçalho "
+        "Authorization: Bearer; é permitido GET /api/Feedbacks para consultar ou "
+        "DELETE /api/Feedbacks/<id> para excluir um único ID numérico. "
+        "Não use outros cabeçalhos, rotas ou métodos. Não proponha outras ações "
+        "destrutivas além desse DELETE estritamente limitado."
     )
     messages = [{"role": "system", "content": system}, {"role": "user", "content": hypothesis}]
     record("session_started", model=MODEL, target=BASE_URL, hypothesis=hypothesis)
@@ -232,7 +273,7 @@ def main() -> int:
             return 0
     except (OSError, ValueError, json.JSONDecodeError, KeyError, subprocess.TimeoutExpired) as error:
         record("error", error=repr(error))
-        print(f"Erro controlado: {error}")
+        print(f"Erro controlado: {redact_bearer(str(error))}")
         return 1
     except (EOFError, KeyboardInterrupt):
         record("session_interrupted")

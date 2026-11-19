@@ -2,7 +2,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from agent.main import BASE_URL, INTERPRETATION_SCHEMA, main, parse_interpretation, public_proposal, public_result, read_block, validate
+from agent.main import BASE_URL, INTERPRETATION_SCHEMA, execute, main, parse_interpretation, public_proposal, public_result, read_block, validate
 
 
 class AgentPolicyTests(unittest.TestCase):
@@ -11,6 +11,13 @@ class AgentPolicyTests(unittest.TestCase):
             "-sS", "-X", "POST", "-H", "Content-Type: application/json",
             "--data-raw", json.dumps({"email": "teste@example.invalid", "password": "segredo"}), url
         ]}
+
+    def feedbacks(self, *, token="token-comum", item=None, method=None):
+        args = ["-sS", "-H", f"Authorization: Bearer {token}"]
+        if method:
+            args += ["-X", method]
+        suffix = "/api/Feedbacks" + (f"/{item}" if item is not None else "")
+        return {"tool": "curl", "args": [*args, BASE_URL + suffix]}
 
     def test_login_is_limited_to_authorized_endpoint(self):
         self.assertEqual(validate(self.login()), [])
@@ -27,6 +34,43 @@ class AgentPolicyTests(unittest.TestCase):
         response = '{"authentication":{"token":"abc123","umail":"admin@example.invalid"}}\nHTTP_STATUS:200'
         self.assertNotIn("abc123", public_result(response))
         self.assertIn("HTTP_STATUS:200", public_result(response))
+        self.assertNotIn("token-comum", json.dumps(public_proposal(self.feedbacks())))
+
+    def test_feedback_collection_allows_only_authenticated_get(self):
+        self.assertEqual(validate(self.feedbacks()), [])
+        self.assertTrue(validate(self.feedbacks(method="DELETE")))
+        self.assertTrue(validate(self.feedbacks(token="")))
+        self.assertTrue(validate(self.feedbacks(token="abc\nX-Extra: sim")))
+
+    def test_feedback_delete_allows_only_one_numeric_item(self):
+        self.assertEqual(validate(self.feedbacks(item="17", method="DELETE")), [])
+        self.assertTrue(validate(self.feedbacks(item="17")))
+        self.assertTrue(validate(self.feedbacks(item="17", method="PUT")))
+        self.assertTrue(validate(self.feedbacks(item="17/18", method="DELETE")))
+        self.assertTrue(validate(self.feedbacks(item="abc", method="DELETE")))
+
+    def test_feedback_policy_blocks_other_targets_routes_headers_and_query(self):
+        proposal = self.feedbacks()
+        proposal["args"][-1] = "http://example.org/api/Feedbacks"
+        self.assertTrue(validate(proposal))
+        proposal = self.feedbacks()
+        proposal["args"][-1] = BASE_URL + "/api/Users"
+        self.assertTrue(validate(proposal))
+        proposal = self.feedbacks()
+        proposal["args"][2] = "Cookie: token-comum"
+        self.assertTrue(validate(proposal))
+        proposal = self.feedbacks()
+        proposal["args"][-1] += "?limit=1"
+        self.assertTrue(validate(proposal))
+        self.assertTrue(validate({"tool": "curl", "args": [BASE_URL + "/api/Feedbacks/abc"]}))
+
+    def test_feedback_execution_adds_http_status_without_logging_token(self):
+        with patch("agent.main.subprocess.run") as run:
+            run.return_value = type("Result", (), {"returncode": 0, "stdout": "token-comum\nHTTP_STATUS:200", "stderr": ""})()
+            code, output = execute(self.feedbacks())
+        self.assertEqual((code, output), (0, "[REDACTED]\nHTTP_STATUS:200"))
+        self.assertEqual(run.call_args.args[0][-2:], ["-w", "\nHTTP_STATUS:%{http_code}"])
+        self.assertEqual(run.call_args.args[0][:2], ["curl", "-q"])
 
     def test_multiline_hypothesis_is_consumed_before_decision(self):
         with patch("builtins.input", side_effect=["primeira linha", "segunda linha", "FIM"]):
