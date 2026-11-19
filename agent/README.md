@@ -20,10 +20,12 @@ Na raiz do projeto:
 OLLAMA_MODEL=qwen2.5:1.5b python3 agent/main.py
 ```
 
-O agente começa com uma hipótese fornecida pelo operador, pede uma proposta ao
-modelo, mostra a ação e oferece `a` (aprovar), `m` (modificar) ou `r` (rejeitar).
-Após uma execução aprovada, o resultado é enviado ao modelo para orientar a
-próxima proposta.
+O agente solicita a hipótese. Cole uma ou várias linhas e digite `FIM` sozinho
+em uma linha para encerrá-la. Ele mostra a proposta e oferece `a` (aprovar),
+`m` (modificar) ou `r` (rejeitar). Ao modificar, cole o JSON e encerre com
+`FIM`. Após uma execução aprovada, o resultado é enviado ao modelo para
+interpretação; a sessão termina após essa única ação. Para outra hipótese,
+inicie uma nova sessão.
 
 Para Login Admin, o `curl` aceita POST somente em `/rest/user/login`, com
 `email` e `password` em JSON e uma tentativa por proposta. A resposta de

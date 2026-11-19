@@ -118,11 +118,11 @@ def public_result(output: str) -> str:
     return output
 
 
-def read_modified_proposal() -> str:
-    print("Cole o JSON em uma linha ou em várias linhas; encerre com uma linha contendo apenas FIM.")
+def read_block(label: str) -> str:
+    print(f"Cole {label} em uma linha ou em várias linhas; termine com FIM sozinho em uma linha.")
     lines: list[str] = []
     while True:
-        line = input("JSON> ")
+        line = input(f"{label}> ")
         if line.strip() == "FIM":
             return "\n".join(lines)
         lines.append(line)
@@ -143,7 +143,11 @@ def execute(proposal: dict[str, object]) -> tuple[int, str]:
 
 
 def main() -> int:
-    hypothesis = input("Hipótese inicial: ").strip()
+    try:
+        hypothesis = read_block("Hipótese").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nEntrada encerrada sem executar ferramenta.")
+        return 0
     if not hypothesis:
         print("A hipótese é obrigatória.")
         return 2
@@ -161,8 +165,7 @@ def main() -> int:
     messages = [{"role": "system", "content": system}, {"role": "user", "content": hypothesis}]
     record("session_started", model=MODEL, target=BASE_URL, hypothesis=hypothesis)
 
-    while True:
-        try:
+    try:
             raw = ask_ollama(messages)
             proposal = extract_proposal(raw)
             errors = validate(proposal)
@@ -178,7 +181,7 @@ def main() -> int:
                 print("Proposta rejeitada. Encerrando esta sessão.")
                 return 0
             if decision == "m":
-                modified = read_modified_proposal()
+                modified = read_block("JSON")
                 proposal = extract_proposal(modified)
                 errors = validate(proposal)
                 record("human_decision", decision="modified", proposal=public_proposal(proposal), validation_errors=errors)
@@ -187,7 +190,7 @@ def main() -> int:
                     return 2
             elif decision != "a":
                 print("Decisão inválida.")
-                continue
+                return 2
             else:
                 record("human_decision", decision="approved")
             code, output = execute(proposal)
@@ -197,10 +200,22 @@ def main() -> int:
                 {"role": "assistant", "content": json.dumps(public_proposal(proposal), ensure_ascii=False)},
                 {"role": "user", "content": f"Resultado da ferramenta (código {code}):\n{output}"},
             ])
-        except (OSError, ValueError, json.JSONDecodeError, KeyError) as error:
-            record("error", error=repr(error))
-            print(f"Erro controlado: {error}")
-            return 1
+            interpretation = ask_ollama([
+                {"role": "system", "content": "Responda somente JSON com os campos interpretacao, limite e proximo_passo. Não proponha comandos nem afirme vulnerabilidade sem evidência."},
+                *messages[1:],
+            ])
+            record("interpretation", text=interpretation)
+            print(f"\nInterpretação do modelo:\n{interpretation}")
+            print("Sessão encerrada após uma execução supervisionada.")
+            return 0
+    except (OSError, ValueError, json.JSONDecodeError, KeyError, subprocess.TimeoutExpired) as error:
+        record("error", error=repr(error))
+        print(f"Erro controlado: {error}")
+        return 1
+    except (EOFError, KeyboardInterrupt):
+        record("session_interrupted")
+        print("\nSessão interrompida sem executar nova ferramenta.")
+        return 0
 
 
 if __name__ == "__main__":
